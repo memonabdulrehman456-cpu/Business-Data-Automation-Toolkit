@@ -1,0 +1,10 @@
+"""Convenient development entry point for the FastAPI application.
+
+Run with: python app.py
+Or use: uvicorn app.main:app --reload
+"""
+import uvicorn
+from app.main import app
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

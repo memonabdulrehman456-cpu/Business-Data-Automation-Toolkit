@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="A business-ready CSV and JSON data quality automation toolkit.">
+  <title>DataPilot — Business Data Automation Toolkit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#">
+        <span class="brand-mark">D</span>
+        <span><b>DataPilot</b><small>DATA AUTOMATION</small></span>
+      </a>
+      <div class="workspace-label">WORKSPACE</div>
+      <a class="nav-item active" href="#"><span>◫</span> Overview</a>
+      <a class="nav-item" href="#upload-panel"><span>⇧</span> Data processing</a>
+      <a class="nav-item" href="#quality-panel"><span>⌁</span> Data quality</a>
+      <div class="sidebar-bottom">
+        <div class="help-card">
+          <span class="help-icon">✦</span>
+          <b>Built for better data</b>
+          <p>Turn messy files into clean, usable business data.</p>
+        </div>
+        <div class="profile">
+          <div class="avatar">AR</div>
+          <div><b>Analyst workspace</b><small>Local session</small></div>
+          <span class="dots">•••</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="crumb">Workspace <span>/</span> <b>Overview</b></div>
+        <div class="top-actions"><span class="system-status"><i></i> System ready</span><div class="top-avatar">AR</div></div>
+      </header>
+
+      <section class="welcome">
+        <div>
+          <div class="eyebrow">BUSINESS DATA AUTOMATION TOOLKIT</div>
+          <h1>Make your data<br><em>work smarter.</em></h1>
+          <p>Import, inspect and clean your business data in one streamlined workspace.</p>
+        </div>
+        <div class="welcome-art" aria-hidden="true">
+          <div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div>
+          <div class="art-core">✳</div><div class="art-chip chip-one">CSV</div><div class="art-chip chip-two">JSON</div><div class="art-chip chip-three">✓ CLEAN</div>
+        </div>
+      </section>
+
+      <section class="stat-grid">
+        <article class="stat-card"><div class="stat-top"><span>Rows analyzed</span><span class="stat-icon violet">▤</span></div><strong id="stat-rows">—</strong><small>Records in latest upload</small></article>
+        <article class="stat-card"><div class="stat-top"><span>Columns detected</span><span class="stat-icon blue">▥</span></div><strong id="stat-columns">—</strong><small>Fields identified automatically</small></article>
+        <article class="stat-card"><div class="stat-top"><span>Data completeness</span><span class="stat-icon green">◉</span></div><strong id="stat-complete">—</strong><small>Based on non-empty cells</small></article>
+        <article class="stat-card"><div class="stat-top"><span>Issues detected</span><span class="stat-icon orange">⚑</span></div><strong id="stat-issues">—</strong><small>Exceptions found during review</small></article>
+      </section>
+
+      <section class="content-grid">
+        <article class="panel upload-panel" id="upload-panel">
+          <div class="panel-heading"><div><div class="eyebrow">START A WORKFLOW</div><h2>Upload your dataset</h2><p>Choose a CSV or JSON file to begin automated analysis.</p></div><span class="step-pill">STEP 01</span></div>
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose a CSV or JSON file">
+            <input type="file" id="file-input" accept=".csv,.json,application/json,text/csv">
+            <div class="upload-symbol">⇧</div>
+            <b>Drop your file here</b>
+            <span>or <u>browse files</u> from your computer</span>
+            <small>CSV or JSON · Maximum size configured by server</small>
+          </div>
+          <div class="file-row hidden" id="file-row"><div class="file-type" id="file-type">CSV</div><div class="file-info"><b id="file-name">dataset.csv</b><small id="file-size">0 KB</small></div><button class="icon-button" id="remove-file" title="Remove file">×</button></div>
+          <div class="progress-wrap hidden" id="progress-wrap"><div class="progress-label"><span id="progress-label">Uploading and analyzing…</span><b id="progress-percent">0%</b></div><div class="progress-track"><div id="progress-bar"></div></div></div>
+          <div class="upload-actions"><button class="btn btn-primary" id="process-btn" disabled>Analyze dataset <span>→</span></button><button class="btn btn-ghost" id="sample-btn">Try sample data</button></div>
+          <div class="privacy-note"><span>♢</span> Your file is processed by the configured backend. Avoid uploading confidential data.</div>
+          <div class="message hidden" id="message"></div>
+        </article>
+
+        <article class="panel quality-panel" id="quality-panel">
+          <div class="panel-heading"><div><div class="eyebrow">QUALITY CONTROL</div><h2>Data quality overview</h2><p>A quick snapshot of the latest processed dataset.</p></div><span class="quality-badge">LIVE RESULTS</span></div>
+          <div class="quality-empty" id="quality-empty"><div class="empty-graphic">⌁</div><b>Your insights will appear here</b><span>Upload a dataset to see its quality profile.</span></div>
+          <div class="quality-results hidden" id="quality-results">
+            <div class="quality-meter"><div class="meter-ring" id="meter-ring"><div><b id="meter-value">0%</b><small>COMPLETE</small></div></div><div class="meter-copy"><b>Data completeness</b><span>Percentage of populated cells in your dataset.</span></div></div>
+            <div class="quality-breakdown"><div><span><i class="dot dot-green"></i> Complete cells</span><b id="complete-cells">—</b></div><div><span><i class="dot dot-orange"></i> Missing cells</span><b id="missing-cells">—</b></div><div><span><i class="dot dot-violet"></i> Duplicate rows</span><b id="duplicate-rows">—</b></div></div>
+            <div class="column-title">COLUMN PROFILE <span id="profile-count">0 FIELDS</span></div>
+            <div class="column-list" id="column-list"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel results-panel hidden" id="results-panel">
+        <div class="panel-heading"><div><div class="eyebrow">PROCESSING COMPLETE</div><h2>Your data is ready</h2><p>Download the cleaned dataset and the exception report.</p></div><span class="success-badge">✓ COMPLETE</span></div>
+        <div class="result-summary" id="result-summary"></div>
+        <div class="download-grid">
+          <div class="download-card"><div class="download-icon clean-icon">↓</div><div><b>Cleaned dataset</b><small>CSV · Trimmed values and duplicate rows removed</small></div><a id="download-clean" class="btn btn-primary" href="#">Download</a></div>
+          <div class="download-card"><div class="download-icon issue-icon">≡</div><div><b>Exception report</b><small>CSV · Missing values and invalid email entries</small></div><a id="download-exceptions" class="btn btn-secondary" href="#">Download</a></div>
+        </div>
+        <div class="summary-actions">
+          <button class="btn btn-secondary" id="view-summary-btn" type="button">▤ View full summary</button>
+          <button class="btn btn-primary" id="download-summary-btn" type="button">↓ Download summary</button>
+        </div>
+      </section>
+
+      <section class="panel charts-panel hidden" id="charts-panel">
+        <div class="panel-heading"><div><div class="eyebrow">VISUAL ANALYTICS</div><h2>Dataset insights</h2><p>Three charts generated from the uploaded file.</p></div><span class="quality-badge">AUTO-GENERATED</span></div>
+        <div class="charts-grid">
+          <article class="chart-card"><h3>Data completeness</h3><p>Complete cells compared with missing cells.</p><div class="chart-wrap" id="completeness-chart" role="img" aria-label="Data completeness chart"></div></article>
+          <article class="chart-card"><h3>Missing values by column</h3><p>Columns with the highest number of blank values.</p><div class="chart-wrap" id="missing-chart" role="img" aria-label="Missing values by column chart"></div></article>
+          <article class="chart-card chart-wide"><h3>Cleaning impact</h3><p>Input records compared with cleaned records and removed duplicates.</p><div class="chart-wrap chart-wrap-wide" id="cleaning-chart" role="img" aria-label="Cleaning impact chart"></div></article>
+        </div>
+      </section>
+
+      <div class="modal-backdrop hidden" id="summary-modal" role="dialog" aria-modal="true" aria-labelledby="summary-modal-title">
+        <div class="summary-modal">
+          <div class="modal-heading"><div><div class="eyebrow">REPORT DETAILS</div><h2 id="summary-modal-title">Dataset analysis summary</h2></div><button class="icon-button" id="close-summary-btn" aria-label="Close summary">×</button></div>
+          <div id="summary-content" class="summary-content"></div>
+          <div class="modal-actions"><button class="btn btn-ghost" id="close-summary-bottom" type="button">Close</button><button class="btn btn-primary" id="modal-download-summary" type="button">Download report</button></div>
+        </div>
+      </div>
+
+      <footer><span>DataPilot <b>·</b> Business Data Automation Toolkit</span><span>Python · FastAPI · Pandas</span></footer>
+    </main>
+  </div>
+  <script src="/assets/config.js"></script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>
