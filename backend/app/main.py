@@ -27,7 +27,7 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 ARTIFACT_DIR = Path(tempfile.gettempdir()) / "arrowstack_bdat_artifacts"
 ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
 
-FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "public"
 
 
 @app.get("/api/health")
@@ -154,7 +154,7 @@ def home():
 
 @app.get("/assets/<path:filename>")
 def assets(filename):
-    return send_from_directory(FRONTEND_DIR, filename)
+    return send_from_directory(FRONTEND_DIR / "assets", filename)
 
 
 @app.errorhandler(413)
