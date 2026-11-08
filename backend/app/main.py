@@ -1,78 +1,86 @@
+
 from __future__ import annotations
+
 import logging
-import os
 import tempfile
 import uuid
 from pathlib import Path
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from app.config import APP_NAME, CORS_ORIGINS, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB
+
+from flask import Flask, request, jsonify, send_file, send_from_directory
+
+from app.config import APP_NAME, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB
 from app.logging_config import configure_logging
 from app.services.processor import (
-    DataFileError, clean_and_report, load_dataframe, profile_dataframe
+    DataFileError,
+    clean_and_report,
+    load_dataframe,
+    profile_dataframe,
 )
 
 configure_logging()
 logger = logging.getLogger(__name__)
 
-app = FastAPI(
-    title=APP_NAME,
-    description="Upload, profile, clean and validate CSV/JSON business data.",
-    version="1.0.0",
-)
+app = Flask(__name__)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=False,
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-)
+app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
-# Temporary artifacts are stored outside the source tree.
 ARTIFACT_DIR = Path(tempfile.gettempdir()) / "arrowstack_bdat_artifacts"
 ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
 
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": APP_NAME, "max_upload_mb": MAX_UPLOAD_MB}
+    return jsonify({
+        "status": "ok",
+        "app": APP_NAME,
+        "max_upload_mb": MAX_UPLOAD_MB
+    })
+
 
 @app.post("/api/process")
-async def process_file(file: UploadFile = File(...)):
+def process_file():
+
+    if "file" not in request.files:
+        return jsonify({"detail": "No file uploaded."}), 400
+
+    file = request.files["file"]
+
     filename = Path(file.filename or "upload").name
     suffix = Path(filename).suffix.lower()
+
     if suffix not in {".csv", ".json"}:
-        raise HTTPException(status_code=400, detail="Only .csv and .json files are supported.")
+        return jsonify({
+            "detail": "Only .csv and .json files are supported."
+        }), 400
 
     temp_path = ARTIFACT_DIR / f"upload_{uuid.uuid4().hex}{suffix}"
-    size = 0
+
     try:
-        # Chunked upload-to-disk avoids reading the whole upload into RAM.
-        with temp_path.open("wb") as output:
-            while True:
-                chunk = await file.read(1024 * 1024)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > MAX_UPLOAD_BYTES:
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"File exceeds the configured {MAX_UPLOAD_MB} MB upload limit."
-                    )
-                output.write(chunk)
+        file.save(temp_path)
+
+        size = temp_path.stat().st_size
 
         if size == 0:
-            raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+            return jsonify({"detail": "The uploaded file is empty."}), 400
+
+        if size > MAX_UPLOAD_BYTES:
+            return jsonify({
+                "detail": f"File exceeds the configured {MAX_UPLOAD_MB} MB upload limit."
+            }), 413
 
         df = load_dataframe(temp_path, filename)
+
         profile = profile_dataframe(df)
+
         cleaned, exceptions, cleaning_summary = clean_and_report(df)
 
         artifact_id = uuid.uuid4().hex
+
         clean_path = ARTIFACT_DIR / f"{artifact_id}_cleaned.csv"
         exception_path = ARTIFACT_DIR / f"{artifact_id}_exceptions.csv"
+
         cleaned.to_csv(clean_path, index=False, encoding="utf-8-sig")
         exceptions.to_csv(exception_path, index=False, encoding="utf-8-sig")
 
@@ -80,7 +88,8 @@ async def process_file(file: UploadFile = File(...)):
             "Processed file=%s bytes=%s rows=%s columns=%s",
             filename, size, profile["rows"], profile["columns"]
         )
-        return {
+
+        return jsonify({
             "artifact_id": artifact_id,
             "filename": filename,
             "file_size_bytes": size,
@@ -89,47 +98,67 @@ async def process_file(file: UploadFile = File(...)):
             "downloads": {
                 "cleaned_csv": f"/api/download/{artifact_id}/cleaned",
                 "exceptions_csv": f"/api/download/{artifact_id}/exceptions",
-            },
-        }
-    except HTTPException:
-        raise
+            }
+        })
+
     except DataFileError as exc:
         logger.warning("Rejected file %s: %s", filename, exc)
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:
-        logger.exception("Unexpected processing error")
-        raise HTTPException(status_code=500, detail="An unexpected processing error occurred.") from exc
-    finally:
-        await file.close()
-        try:
-            temp_path.unlink(missing_ok=True)
-        except Exception:
-            logger.warning("Could not remove temporary upload file %s", temp_path)
+        return jsonify({"detail": str(exc)}), 422
 
-@app.get("/api/download/{artifact_id}/{kind}")
-def download_artifact(artifact_id: str, kind: str):
-    if not all(ch in "0123456789abcdef" for ch in artifact_id) or len(artifact_id) != 32:
-        raise HTTPException(status_code=400, detail="Invalid download identifier.")
+    except Exception:
+        logger.exception("Unexpected processing error")
+        return jsonify({
+            "detail": "An unexpected processing error occurred."
+        }), 500
+
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+@app.get("/api/download/<artifact_id>/<kind>")
+def download_artifact(artifact_id, kind):
+
+    if len(artifact_id) != 32 or not all(
+        ch in "0123456789abcdef" for ch in artifact_id
+    ):
+        return jsonify({"detail": "Invalid download identifier."}), 400
+
     if kind == "cleaned":
         path = ARTIFACT_DIR / f"{artifact_id}_cleaned.csv"
         name = "cleaned_data.csv"
+
     elif kind == "exceptions":
         path = ARTIFACT_DIR / f"{artifact_id}_exceptions.csv"
         name = "exception_report.csv"
+
     else:
-        raise HTTPException(status_code=404, detail="Unknown download type.")
+        return jsonify({"detail": "Unknown download type."}), 404
+
     if not path.exists():
-        raise HTTPException(status_code=404, detail="Download expired or not found. Process the file again.")
-    return FileResponse(path, filename=name, media_type="text/csv")
+        return jsonify({
+            "detail": "Download expired or not found. Process the file again."
+        }), 404
 
-# Serve the included interface when running the backend locally or on Render.
-FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
-if FRONTEND_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
+    return send_file(path, as_attachment=True, download_name=name)
 
-@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+
+@app.get("/")
 def home():
     index = FRONTEND_DIR / "index.html"
+
     if index.exists():
-        return index.read_text(encoding="utf-8")
-    return "<h1>Business Data Automation Toolkit API is running.</h1><p>Visit /docs for API documentation.</p>"
+        return send_from_directory(FRONTEND_DIR, "index.html")
+
+    return "<h1>Business Data Automation Toolkit is running.</h1>"
+
+
+@app.get("/assets/<path:filename>")
+def assets(filename):
+    return send_from_directory(FRONTEND_DIR, filename)
+
+
+@app.errorhandler(413)
+def file_too_large(error):
+    return jsonify({
+        "detail": f"File exceeds the configured {MAX_UPLOAD_MB} MB upload limit."
+    }), 413
